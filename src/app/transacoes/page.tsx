@@ -1,5 +1,6 @@
 "use client";
 
+import Header from "@/components/Header/Header";
 import { useEffect, useState } from "react";
 
 type Transacao = {
@@ -47,30 +48,43 @@ export default function TransacoesPage() {
     localStorage.setItem("transacaoEditando", JSON.stringify(transacao));
     window.location.href = "/nova-transacao";
   };
-  const exportarCSV = () => {
-    const transacoes = JSON.parse(localStorage.getItem("transacoes") || "[]");
+  const exportarCSVDoMesAtual = () => {
+    const todasTransacoes = JSON.parse(
+      localStorage.getItem("transacoes") || "[]"
+    );
 
-    if (!transacoes.length) {
+    if (!todasTransacoes.length) {
       alert("Nenhuma transação para exportar.");
       return;
     }
 
+    const filtradas = mesSelecionado
+      ? todasTransacoes.filter((t: Transacao) =>
+          t.date.startsWith(mesSelecionado)
+        )
+      : todasTransacoes;
+
+    if (!filtradas.length) {
+      alert("Nenhuma transação nesse mês.");
+      return;
+    }
+
     const cabecalho = [
-      "Tipo",
-      "Valor",
       "Data",
+      "Tipo",
       "Descrição",
       "Categoria",
-      "Nome do Cartão",
+      "Valor (R$)",
+      "Cartão",
     ];
 
-    const linhas = transacoes.map((t: any) => [
+    const linhas = filtradas.map((t: Transacao) => [
+      new Date(t.date).toLocaleDateString("pt-BR"),
       t.type,
-      t.value,
-      t.date,
       t.description,
       t.category,
-      t.cardName || "",
+      `R$ ${t.value.toFixed(2).replace(".", ",")}`,
+      t.cardName || "-",
     ]);
 
     const csv = [cabecalho, ...linhas]
@@ -81,16 +95,17 @@ export default function TransacoesPage() {
       )
       .join("\n");
 
-    // Adiciona o BOM para garantir que o Excel leia com UTF-8 corretamente
     const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+
+    const nomeArquivo = mesSelecionado
+      ? `transacoes-${mesSelecionado}.csv`
+      : "transacoes-completas.csv";
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "transacoes.csv");
+    link.setAttribute("download", nomeArquivo);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -98,12 +113,6 @@ export default function TransacoesPage() {
 
   return (
     <div>
-      <button
-        onClick={exportarCSV}
-        className="bg-green-600 text-white px-4 py-2 rounded mb-4"
-      >
-        Exportar CSV
-      </button>
       <h2 className="text-2xl font-bold mb-4">Transações</h2>
       <div className="mb-4">
         <label className="block mb-1">Filtrar por mês:</label>
@@ -122,6 +131,12 @@ export default function TransacoesPage() {
             </option>
           ))}
         </select>
+        <button
+          onClick={exportarCSVDoMesAtual}
+          className="bg-purple-600 text-white px-4 py-2 rounded"
+        >
+          Exportar do Mês Atual
+        </button>
       </div>
       {transacoesFiltradas.length === 0 ? (
         <p className="text-gray-500">Nenhuma transação nesse mês.</p>
